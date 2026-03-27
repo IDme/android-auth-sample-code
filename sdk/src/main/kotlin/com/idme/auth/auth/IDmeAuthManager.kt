@@ -4,6 +4,7 @@ import android.app.Activity
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import com.idme.auth.errors.IDmeAuthError
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
 
 /**
@@ -11,13 +12,14 @@ import kotlinx.coroutines.CompletableDeferred
  * and the coroutine-based SDK API.
  *
  * Flow:
- * 1. [launchAuth] stores a [CompletableDeferred] and opens a Custom Tab.
+ * 1. [launchAuth] stores a [CompletableDeferred] keyed by the session's `state` value and opens a Custom Tab.
  * 2. The browser redirects to the app's scheme, which is caught by [IDmeRedirectActivity].
- * 3. [handleRedirect] completes the deferred with the callback URL.
+ * 3. [handleRedirect] extracts the `state` from the callback URL and routes the result to the
+ *    matching deferred, preventing cross-flow code injection.
  * 4. [launchAuth] resumes and returns the callback URL to the caller.
  */
 internal object IDmeAuthManager {
-    private var pendingAuth: CompletableDeferred<String>? = null
+    private val pending = ConcurrentHashMap<String, CompletableDeferred<String>>()
 
     /**
      * Launches the authentication flow in a Chrome Custom Tab and suspends
@@ -25,14 +27,12 @@ internal object IDmeAuthManager {
      *
      * @param activity The Activity to launch from.
      * @param authUrl The authorization URL to open.
+     * @param sessionId The `state` value for this flow; used to route the callback to the correct coroutine.
      * @return The full callback URL string including query parameters.
      */
-    suspend fun launchAuth(activity: Activity, authUrl: String): String {
-        // Cancel any existing pending auth
-        pendingAuth?.cancel()
-
+    suspend fun launchAuth(activity: Activity, authUrl: String, sessionId: String): String {
         val deferred = CompletableDeferred<String>()
-        pendingAuth = deferred
+        pending[sessionId] = deferred
 
         val customTabsIntent = CustomTabsIntent.Builder()
             .setShowTitle(true)
@@ -45,17 +45,28 @@ internal object IDmeAuthManager {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw IDmeAuthError.UserCancelled
         } finally {
-            pendingAuth = null
+            pending.remove(sessionId)
         }
     }
 
-    /** Called by [IDmeRedirectActivity] when the redirect URI is received. */
+    /** Called by [IDmeRedirectActivity] when the redirect URI is received. Routes to the matching session. */
     internal fun handleRedirect(callbackUrl: String) {
-        pendingAuth?.complete(callbackUrl)
+        val state = try {
+            Uri.parse(callbackUrl).getQueryParameter("state")
+        } catch (_: Exception) {
+            null
+        }
+        if (state != null) {
+            pending[state]?.complete(callbackUrl)
+        } else {
+            // No state in callback (error or non-compliant response) — deliver to any waiting flow
+            pending.values.firstOrNull()?.complete(callbackUrl)
+        }
     }
 
-    /** Called by [IDmeRedirectActivity] when no URI data is present. */
+    /** Called by [IDmeRedirectActivity] when no URI data is present. Cancels all pending flows. */
     internal fun handleCancel() {
-        pendingAuth?.completeExceptionally(IDmeAuthError.UserCancelled)
+        pending.values.forEach { it.completeExceptionally(IDmeAuthError.UserCancelled) }
+        pending.clear()
     }
 }

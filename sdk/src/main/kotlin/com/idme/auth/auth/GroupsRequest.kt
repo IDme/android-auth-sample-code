@@ -21,7 +21,8 @@ class GroupsRequest(configuration: IDmeConfiguration) {
             throw IDmeAuthError.GroupsNotAvailableInSandbox
         }
 
-        if (android.net.Uri.parse(configuration.redirectURI).scheme == null) {
+        val uriScheme = android.net.Uri.parse(configuration.redirectURI).scheme
+        if (uriScheme == null || uriScheme.lowercase() in DISALLOWED_SCHEMES) {
             throw IDmeAuthError.InvalidRedirectURI
         }
 
@@ -61,5 +62,9 @@ class GroupsRequest(configuration: IDmeConfiguration) {
             "$key=${java.net.URLEncoder.encode(value, "UTF-8")}"
         }
         url = "$baseUrl?$queryString"
+    }
+
+    companion object {
+        private val DISALLOWED_SCHEMES = setOf("http", "https", "javascript", "file", "data")
     }
 }

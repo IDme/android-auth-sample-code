@@ -13,16 +13,13 @@ interface CredentialStoring {
 }
 
 /**
- * Persists [Credentials] to Android SharedPreferences.
+ * In-memory credential store for testing purposes only.
  *
- * For production use, consumers should use [EncryptedCredentialStore] which wraps
- * EncryptedSharedPreferences. This basic implementation uses standard SharedPreferences
- * and is suitable for development and testing.
- *
- * Note: The SDK initializes with this store by default. To use EncryptedSharedPreferences,
- * pass an [EncryptedCredentialStore] when constructing [IDmeAuth] via the internal constructor.
+ * This store holds credentials in a plain String field with no encryption.
+ * It is intentionally internal and must not be used in production.
+ * The [IDmeAuth] public constructor uses [EncryptedCredentialStore] by default.
  */
-class CredentialStore : CredentialStoring {
+internal class CredentialStore : CredentialStoring {
     private val json = Json { ignoreUnknownKeys = true }
 
     // In-memory storage as a fallback when no Android Context is available.

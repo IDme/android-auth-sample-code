@@ -1,10 +1,11 @@
 package com.idme.auth.demo
 
 import android.app.Activity
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.idme.auth.IDmeAuth
 import com.idme.auth.configuration.IDmeAuthMode
@@ -17,7 +18,7 @@ import com.idme.auth.models.Credentials
 import com.idme.auth.models.Policy
 import kotlinx.coroutines.launch
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     // MARK: - Configuration Inputs
 
@@ -196,6 +197,10 @@ class AuthViewModel : ViewModel() {
             finalScopes.add(0, IDmeScope.OPENID)
         }
 
+        // Client secret is only applicable for server-side OAuth flows; never embed in PKCE or OIDC.
+        // TODO: Load credentials from local.properties via BuildConfig rather than hardcoding.
+        val secret = if (authMode == IDmeAuthMode.OAUTH) clientSecret else null
+
         val config = IDmeConfiguration(
             clientId = clientId,
             redirectURI = redirectURI,
@@ -203,9 +208,9 @@ class AuthViewModel : ViewModel() {
             environment = environment,
             authMode = authMode,
             verificationType = verificationType,
-            clientSecret = clientSecret
+            clientSecret = secret
         )
 
-        return IDmeAuth(config)
+        return IDmeAuth(config, getApplication())
     }
 }

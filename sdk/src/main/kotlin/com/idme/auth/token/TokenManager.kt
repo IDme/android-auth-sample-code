@@ -90,11 +90,14 @@ class TokenManager(
         }
     }
 
-    /** Clears all stored credentials synchronously (for logout from non-suspend context). */
+    /**
+     * Clears all stored credentials synchronously (for logout from non-suspend context).
+     * Prefer the suspending [clear] to avoid races with concurrent refresh operations.
+     */
     fun clearSync() {
-        cachedCredentials = null
         refreshDeferred?.cancel()
         refreshDeferred = null
+        cachedCredentials = null
         credentialStore.delete()
     }
 }

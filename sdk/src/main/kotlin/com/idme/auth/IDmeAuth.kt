@@ -1,6 +1,7 @@
 package com.idme.auth
 
 import android.app.Activity
+import android.content.Context
 import android.net.Uri
 import com.idme.auth.auth.AuthorizationRequest
 import com.idme.auth.auth.GroupsRequest
@@ -13,6 +14,7 @@ import com.idme.auth.configuration.IDmeVerificationType
 import com.idme.auth.errors.IDmeAuthError
 import com.idme.auth.jwt.JWKSClient
 import com.idme.auth.jwt.JWKSFetching
+import com.idme.auth.jwt.JWTDecoder
 import com.idme.auth.jwt.JWTValidator
 import com.idme.auth.models.AttributeResponse
 import com.idme.auth.models.Credentials
@@ -21,7 +23,7 @@ import com.idme.auth.models.UserInfo
 import com.idme.auth.networking.APIEndpoint
 import com.idme.auth.networking.DefaultHTTPClient
 import com.idme.auth.networking.HTTPClient
-import com.idme.auth.storage.CredentialStore
+import com.idme.auth.storage.EncryptedCredentialStore
 import com.idme.auth.token.TokenManager
 import com.idme.auth.token.TokenRefresher
 import com.idme.auth.utilities.Log
@@ -31,7 +33,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import com.idme.auth.jwt.JWTDecoder
 
 /**
  * Main entry point for the IDmeAuthSDK.
@@ -45,7 +46,8 @@ import com.idme.auth.jwt.JWTDecoder
  *         redirectURI = "yourapp://idme/callback",
  *         scopes = listOf(IDmeScope.MILITARY),
  *         verificationType = IDmeVerificationType.SINGLE
- *     )
+ *     ),
+ *     context = applicationContext
  * )
  *
  * val credentials = idme.login(activity)
@@ -59,11 +61,11 @@ class IDmeAuth(
 ) {
     private var lastNonce: String? = null
 
-    /** Creates a new IDmeAuth instance with the given configuration. */
-    constructor(configuration: IDmeConfiguration) : this(
+    /** Creates a new IDmeAuth instance with the given configuration. Credentials are stored in EncryptedSharedPreferences. */
+    constructor(configuration: IDmeConfiguration, context: Context) : this(
         configuration = configuration,
         tokenManager = TokenManager(
-            credentialStore = CredentialStore(),
+            credentialStore = EncryptedCredentialStore(context),
             refresher = TokenRefresher(configuration, DefaultHTTPClient())
         ),
         httpClient = DefaultHTTPClient(),
@@ -109,7 +111,7 @@ class IDmeAuth(
 
         Log.info("Starting auth session: ${configuration.verificationType.value} mode")
 
-        val callbackURL = IDmeAuthManager.launchAuth(activity, authURL)
+        val callbackURL = IDmeAuthManager.launchAuth(activity, authURL, state)
 
         val code = extractAuthorizationCode(callbackURL, state)
 
@@ -147,21 +149,20 @@ class IDmeAuth(
     /**
      * Fetches the available verification policies for the organization.
      *
-     * Uses the client credentials (client_id and client_secret) to authenticate.
+     * Uses the client credentials (client_id and client_secret) to authenticate via HTTP Basic Auth.
      * The policy `handle` can be used as the OAuth `scope` parameter.
      *
      * @return A list of available policies.
      */
     suspend fun policies(): List<Policy> {
-        val baseUrl = APIEndpoint.policies(configuration.environment)
-        val url = "$baseUrl?client_id=${
-            java.net.URLEncoder.encode(configuration.clientId, "UTF-8")
-        }&client_secret=${
-            java.net.URLEncoder.encode(configuration.clientSecret ?: "", "UTF-8")
-        }"
+        val url = APIEndpoint.policies(configuration.environment)
+        val credentials = "${configuration.clientId}:${configuration.clientSecret ?: ""}"
+        val encoded = java.util.Base64.getEncoder()
+            .encodeToString(credentials.toByteArray(Charsets.UTF_8))
+        val headers = mapOf("Authorization" to "Basic $encoded")
 
         val response = try {
-            httpClient.get(url, mapOf())
+            httpClient.get(url, headers)
         } catch (e: IDmeAuthError) {
             throw e
         } catch (e: Exception) {
@@ -303,10 +304,16 @@ class IDmeAuth(
 
     // MARK: - Private
 
-    /** Extracts JSON data from a response that may be plain JSON or a JWT. */
-    private fun extractJSON(body: String): String {
+    /**
+     * Extracts JSON data from a response that may be plain JSON or a JWT.
+     * If the body is a JWT, the signature is verified before claims are extracted.
+     */
+    private suspend fun extractJSON(body: String): String {
         val trimmed = body.trim().trim('"')
         if (trimmed.startsWith("eyJ")) {
+            val issuer = "${configuration.environment.apiBaseURL}oidc"
+            val validator = JWTValidator(jwksFetcher, issuer, configuration.clientId)
+            validator.validate(trimmed, null)
             val decoded = JWTDecoder.decode(trimmed)
             return Json.encodeToString(JsonObject.serializer(), JsonObject(decoded.payload.mapValues { (_, v) ->
                 JsonPrimitive(v.toString())
@@ -337,7 +344,8 @@ class IDmeAuth(
             throw IDmeAuthError.GroupsNotAvailableInSandbox
         }
 
-        if (Uri.parse(configuration.redirectURI).scheme == null) {
+        val scheme = Uri.parse(configuration.redirectURI).scheme
+        if (scheme == null || scheme.lowercase() in DISALLOWED_REDIRECT_SCHEMES) {
             throw IDmeAuthError.InvalidRedirectURI
         }
     }
@@ -354,14 +362,19 @@ class IDmeAuth(
             throw IDmeAuthError.TokenExchangeFailed(0, description)
         }
 
-        // Validate state
+        // Validate state — mandatory; a missing state is treated as a CSRF/injection attempt
         val returnedState = uri.getQueryParameter("state")
-        if (returnedState != null && returnedState != expectedState) {
+            ?: throw IDmeAuthError.StateMismatch
+        if (returnedState != expectedState) {
             throw IDmeAuthError.StateMismatch
         }
 
         // Extract code
         return uri.getQueryParameter("code")
             ?: throw IDmeAuthError.MissingAuthorizationCode
+    }
+
+    companion object {
+        private val DISALLOWED_REDIRECT_SCHEMES = setOf("http", "https", "javascript", "file", "data")
     }
 }
