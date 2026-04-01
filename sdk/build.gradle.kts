@@ -3,6 +3,9 @@ import com.android.build.gradle.LibraryExtension
 apply(plugin = "com.android.library")
 apply(plugin = "kotlin-android")
 apply(plugin = "kotlinx-serialization")
+apply(plugin = "maven-publish")
+
+version = "1.0.0"
 
 configure<LibraryExtension> {
     namespace = "com.idme.auth"
@@ -33,6 +36,8 @@ configure<LibraryExtension> {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    publishing { singleVariant("release") }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -50,4 +55,37 @@ dependencies {
 
     "testImplementation"("junit:junit:4.13.2")
     "testImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            register<MavenPublication>("release") {
+                groupId = "me.id.auth"
+                artifactId = "idme-auth-sample"
+                version = project.version.toString()
+
+                from(components["release"])
+
+                pom {
+                    name.set("ID.me Auth Sample Code")
+                    description.set("ID.me Android Auth Sample Code SDK")
+                    packaging = "aar"
+                }
+            }
+        }
+
+        repositories {
+            mavenLocal()
+
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/IDme/android-auth-sample-code")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+    }
 }
