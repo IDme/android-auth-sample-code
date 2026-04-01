@@ -1,4 +1,6 @@
 import com.android.build.gradle.LibraryExtension
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
 
 apply(plugin = "com.android.library")
 apply(plugin = "kotlin-android")
@@ -58,9 +60,9 @@ dependencies {
 }
 
 afterEvaluate {
-    publishing {
+    configure<PublishingExtension> {
         publications {
-            register<MavenPublication>("release") {
+            register("release", MavenPublication::class) {
                 groupId = "me.id.auth"
                 artifactId = "idme-auth-sample"
                 version = project.version.toString()
