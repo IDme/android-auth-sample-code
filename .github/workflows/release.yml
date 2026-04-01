@@ -66,10 +66,10 @@ jobs:
           echo "Tag v$RELEASE_VERSION is available"
 
       - name: Build release AAR
-        run: ./gradlew :sdk:assembleRelease -Pversion=$RELEASE_VERSION
+        run: ./gradlew :sdk:assembleRelease -PreleaseVersion=$RELEASE_VERSION
 
       - name: Build Maven artifacts locally
-        run: ./gradlew :sdk:publishReleasePublicationToMavenLocalRepository -Pversion=$RELEASE_VERSION
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocalRepository -PreleaseVersion=$RELEASE_VERSION
 
       # --- Attestation: release assets ---
       - name: Generate release asset attestation
