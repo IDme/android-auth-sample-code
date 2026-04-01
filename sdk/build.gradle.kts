@@ -7,7 +7,7 @@ apply(plugin = "kotlin-android")
 apply(plugin = "kotlinx-serialization")
 apply(plugin = "maven-publish")
 
-version = "1.0.0"
+version = findProperty("version")?.toString() ?: "1.0.0"
 
 configure<LibraryExtension> {
     namespace = "com.idme.auth"

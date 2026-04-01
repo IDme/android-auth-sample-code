@@ -13,13 +13,11 @@ on:
         type: boolean
         default: false
 
-env:
-  GITHUB_ACTOR: ${{ github.actor }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    # TODO: Add `environment: release` after testing, then create the environment
+    # in repo Settings > Environments with "Protected branches only" deployment policy
     permissions:
       contents: write
       packages: write
@@ -67,27 +65,108 @@ jobs:
           fi
           echo "Tag v$RELEASE_VERSION is available"
 
-      - name: Update version in build.gradle.kts
-        run: |
-          sed -i "s/^version = \".*\"/version = \"$RELEASE_VERSION\"/" sdk/build.gradle.kts
-          echo "Updated version in sdk/build.gradle.kts:"
-          grep '^version = ' sdk/build.gradle.kts
-
       - name: Build release AAR
-        run: ./gradlew :sdk:assembleRelease
+        run: ./gradlew :sdk:assembleRelease -Pversion=$RELEASE_VERSION
 
       - name: Build Maven artifacts locally
-        run: ./gradlew :sdk:publishReleasePublicationToMavenLocalRepository
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocalRepository -Pversion=$RELEASE_VERSION
 
-      - name: Publish Maven artifacts to GitHub Packages
-        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
-
-      - name: Generate build attestation
+      # --- Attestation: release assets ---
+      - name: Generate release asset attestation
         uses: actions/attest-build-provenance@v3
+        id: release-attest
         with:
-          subject-path: |
-            sdk/build/outputs/aar/sdk-release.aar
-            ~/.m2/repository/me/id/auth/idme-auth-sample/${{ env.RELEASE_VERSION }}/*
+          subject-path: sdk/build/outputs/aar/sdk-release.aar
+
+      # --- Attestation: Maven artifacts ---
+      - name: Generate Maven artifact attestation
+        uses: actions/attest-build-provenance@v3
+        id: maven-attest
+        with:
+          subject-path: ~/.m2/repository/me/id/auth/idme-auth-sample/${{ env.RELEASE_VERSION }}/*
+
+      - name: Save attestation bundle alongside Maven artifacts
+        run: |
+          ATTESTATION_BUNDLE_PATH="${{ steps.maven-attest.outputs.bundle-path }}"
+          MAVEN_DIR=~/.m2/repository/me/id/auth/idme-auth-sample/$RELEASE_VERSION
+          if [[ -f "$ATTESTATION_BUNDLE_PATH" ]]; then
+            cp "$ATTESTATION_BUNDLE_PATH" "$MAVEN_DIR/idme-auth-sample-${RELEASE_VERSION}.intoto.jsonl"
+            echo "Saved attestation bundle as idme-auth-sample-${RELEASE_VERSION}.intoto.jsonl"
+          fi
+
+      # --- Publish Maven artifacts + attestation to GitHub Packages ---
+      - name: Publish Maven artifacts to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GROUP_ID="me.id.auth"
+          ARTIFACT_ID="idme-auth-sample"
+          VERSION="$RELEASE_VERSION"
+          GROUP_PATH=$(echo "$GROUP_ID" | tr '.' '/')
+          GITHUB_URL="https://maven.pkg.github.com/IDme/android-auth-sample-code"
+
+          echo "========================================"
+          echo "Deploying Maven Package"
+          echo "========================================"
+          echo "Coordinates: ${GROUP_ID}:${ARTIFACT_ID}:${VERSION}"
+          echo "URL: ${GITHUB_URL}"
+          echo "========================================"
+
+          MAVEN_DIR=~/.m2/repository/${GROUP_PATH}/${ARTIFACT_ID}/${VERSION}
+          cd "$MAVEN_DIR"
+
+          upload_file() {
+              local file="$1"
+              local remote_path="$2"
+              local url="${GITHUB_URL}/${GROUP_PATH}/${ARTIFACT_ID}/${VERSION}/${remote_path}"
+
+              echo "Uploading: $file -> $remote_path"
+              response=$(curl -s -w "\n%{http_code}" \
+                  -X PUT \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary "@${file}" \
+                  "$url")
+
+              http_code=$(echo "$response" | tail -n1)
+              if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+                  echo "  Success (HTTP $http_code)"
+                  return 0
+              else
+                  echo "  Failed (HTTP $http_code)"
+                  body=$(echo "$response" | sed '$d')
+                  echo "  Response: $body"
+                  return 1
+              fi
+          }
+
+          # Deploy POM
+          if ! upload_file "${ARTIFACT_ID}-${VERSION}.pom" "${ARTIFACT_ID}-${VERSION}.pom"; then
+              echo "Error: Failed to deploy POM"
+              exit 1
+          fi
+
+          # Deploy AAR
+          if ! upload_file "${ARTIFACT_ID}-${VERSION}.aar" "${ARTIFACT_ID}-${VERSION}.aar"; then
+              echo "Error: Failed to deploy AAR"
+              exit 1
+          fi
+
+          # Deploy module metadata if exists
+          if [[ -f "${ARTIFACT_ID}-${VERSION}.module" ]]; then
+              upload_file "${ARTIFACT_ID}-${VERSION}.module" "${ARTIFACT_ID}-${VERSION}.module" || \
+                  echo "Warning: Failed to deploy module metadata (non-critical)"
+          fi
+
+          # Deploy attestation bundle if exists
+          if [[ -f "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" ]]; then
+              upload_file "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" || \
+                  echo "Warning: Failed to deploy attestation bundle (non-critical)"
+          fi
+
+          echo "========================================"
+          echo "Maven package deployed successfully!"
+          echo "========================================"
 
       - name: Display Maven artifacts
         continue-on-error: true
@@ -102,21 +181,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if ! git diff --quiet HEAD -- sdk/build.gradle.kts; then
-            git add sdk/build.gradle.kts
-            git commit -m "Release v$RELEASE_VERSION"
-          fi
-
           git tag -a "v$RELEASE_VERSION" -m "Auth Sample Code v$RELEASE_VERSION"
           git push origin "v$RELEASE_VERSION"
 
       - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.RELEASE_VERSION }}
           name: Auth Sample Code v${{ env.RELEASE_VERSION }}
-          files: sdk/build/outputs/aar/sdk-release.aar
+          files: |
+            sdk/build/outputs/aar/sdk-release.aar
+            ${{ steps.release-attest.outputs.bundle-path }}
           draft: ${{ inputs.draft }}
           make_latest: ${{ !inputs.draft }}
 
@@ -132,19 +209,7 @@ jobs:
           echo "### Maven Coordinates" >> $GITHUB_STEP_SUMMARY
           echo "\`me.id.auth:idme-auth-sample:$RELEASE_VERSION\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Consumer Usage" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`kotlin" >> $GITHUB_STEP_SUMMARY
-          echo "repositories {" >> $GITHUB_STEP_SUMMARY
-          echo "    maven {" >> $GITHUB_STEP_SUMMARY
-          echo "        url = uri(\"https://maven.pkg.github.com/IDme/android-auth-sample-code\")" >> $GITHUB_STEP_SUMMARY
-          echo "        credentials {" >> $GITHUB_STEP_SUMMARY
-          echo "            username = \"GITHUB_USERNAME\"" >> $GITHUB_STEP_SUMMARY
-          echo "            password = \"GITHUB_TOKEN\"" >> $GITHUB_STEP_SUMMARY
-          echo "        }" >> $GITHUB_STEP_SUMMARY
-          echo "    }" >> $GITHUB_STEP_SUMMARY
-          echo "}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "dependencies {" >> $GITHUB_STEP_SUMMARY
-          echo "    implementation(\"me.id.auth:idme-auth-sample:$RELEASE_VERSION\")" >> $GITHUB_STEP_SUMMARY
-          echo "}" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "gh attestation verify idme-auth-sample-$RELEASE_VERSION.aar --repo IDme/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
