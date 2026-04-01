@@ -6,6 +6,8 @@ import com.idme.auth.models.JWKS
 import com.idme.auth.networking.APIEndpoint
 import com.idme.auth.networking.DefaultHTTPClient
 import com.idme.auth.networking.HTTPClient
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 /** Interface for fetching JWKS, enabling mock injection. */
@@ -20,16 +22,17 @@ class JWKSClient(
     private val cacheTTL: Long = 3600_000L // 1 hour in milliseconds
 ) : JWKSFetching {
 
-    private var cached: JWKS? = null
-    private var cacheTime: Long = 0
+    @Volatile private var cached: JWKS? = null
+    @Volatile private var cacheTime: Long = 0
+    private val cacheMutex = Mutex()
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun fetchJWKS(): JWKS {
+    override suspend fun fetchJWKS(): JWKS = cacheMutex.withLock {
         val now = System.currentTimeMillis()
         val cachedValue = cached
         if (cachedValue != null && (now - cacheTime) < cacheTTL) {
-            return cachedValue
+            return@withLock cachedValue
         }
 
         val url = APIEndpoint.jwks(environment)
@@ -55,6 +58,6 @@ class JWKSClient(
         cached = jwks
         cacheTime = now
 
-        return jwks
+        jwks
     }
 }

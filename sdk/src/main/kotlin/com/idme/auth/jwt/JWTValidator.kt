@@ -45,14 +45,18 @@ class JWTValidator(
     }
 
     private fun validateClaims(payload: Map<String, Any>, nonce: String?) {
-        // Issuer
+        val now = System.currentTimeMillis()
+
+        // Issuer — mandatory per OpenID Connect Core 1.0 Section 3.1.3.7
         val iss = payload["iss"] as? String
-        if (iss != null && iss != issuer) {
+            ?: throw IDmeAuthError.JWTClaimInvalid("iss", "Missing issuer claim")
+        if (iss != issuer) {
             throw IDmeAuthError.JWTClaimInvalid("iss", "Expected $issuer, got $iss")
         }
 
-        // Audience
+        // Audience — mandatory per OpenID Connect Core 1.0 Section 3.1.3.7
         val aud = payload["aud"]
+            ?: throw IDmeAuthError.JWTClaimInvalid("aud", "Missing audience claim")
         when (aud) {
             is String -> {
                 if (aud != clientId) {
@@ -66,15 +70,21 @@ class JWTValidator(
             }
         }
 
-        // Expiration
+        // Expiration — with clock skew tolerance
         val exp = payload["exp"]
         if (exp != null) {
-            val expTime = when (exp) {
-                is Number -> exp.toLong() * 1000
-                else -> null
-            }
-            if (expTime != null && System.currentTimeMillis() >= expTime) {
+            val expTime = (exp as? Number)?.toLong()?.times(1000)
+            if (expTime != null && now >= expTime + CLOCK_SKEW_MS) {
                 throw IDmeAuthError.JWTClaimInvalid("exp", "Token has expired")
+            }
+        }
+
+        // Not Before — reject tokens that are not yet valid
+        val nbf = payload["nbf"]
+        if (nbf != null) {
+            val nbfTime = (nbf as? Number)?.toLong()?.times(1000)
+            if (nbfTime != null && now < nbfTime - CLOCK_SKEW_MS) {
+                throw IDmeAuthError.JWTClaimInvalid("nbf", "Token not yet valid")
             }
         }
 
@@ -86,5 +96,9 @@ class JWTValidator(
                 throw IDmeAuthError.JWTClaimInvalid("nonce", "Nonce mismatch")
             }
         }
+    }
+
+    companion object {
+        private const val CLOCK_SKEW_MS = 30_000L // 30 seconds
     }
 }

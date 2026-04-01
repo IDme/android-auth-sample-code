@@ -19,6 +19,6 @@ data class TokenResponse(
         refreshToken = refreshToken,
         idToken = idToken,
         tokenType = tokenType,
-        expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
+        expiresAt = System.currentTimeMillis() + (expiresIn.toLong().coerceIn(0, 86400) * 1000L)
     )
 }

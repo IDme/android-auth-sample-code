@@ -1,5 +1,6 @@
 package com.idme.auth.utilities
 
+import com.idme.auth.errors.IDmeAuthError
 import java.util.Base64
 
 /** Base64URL encoding/decoding per RFC 4648 section 5. */
@@ -9,11 +10,11 @@ object Base64URL {
     fun encode(data: ByteArray): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString(data)
 
-    /** Decodes a Base64URL string to raw bytes. */
-    fun decode(string: String): ByteArray? =
+    /** Decodes a Base64URL string to raw bytes. Throws [IDmeAuthError.InvalidJWT] on invalid input. */
+    fun decode(string: String): ByteArray =
         try {
             Base64.getUrlDecoder().decode(string)
-        } catch (_: Exception) {
-            null
+        } catch (e: Exception) {
+            throw IDmeAuthError.InvalidJWT("Invalid Base64URL encoding: ${e.message}")
         }
 }

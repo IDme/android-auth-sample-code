@@ -52,7 +52,6 @@ object JWTDecoder {
 
         // Decode header
         val headerData = Base64URL.decode(headerPart)
-            ?: throw IDmeAuthError.InvalidJWT("Failed to decode JWT header")
         val headerJSON = try {
             Json.parseToJsonElement(String(headerData, Charsets.UTF_8)) as JsonObject
         } catch (e: Exception) {
@@ -66,7 +65,6 @@ object JWTDecoder {
 
         // Decode payload
         val payloadData = Base64URL.decode(payloadPart)
-            ?: throw IDmeAuthError.InvalidJWT("Failed to decode JWT payload")
         val payloadJSON = try {
             Json.parseToJsonElement(String(payloadData, Charsets.UTF_8)) as JsonObject
         } catch (e: Exception) {
@@ -80,7 +78,6 @@ object JWTDecoder {
 
         // Decode signature
         val signatureData = Base64URL.decode(signaturePart)
-            ?: throw IDmeAuthError.InvalidJWT("Failed to decode JWT signature")
 
         val signedPortion = "$headerPart.$payloadPart"
 
