@@ -23,6 +23,8 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -79,6 +81,13 @@ jobs:
 
       - name: Publish Maven artifacts to GitHub Packages
         run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
+
+      - name: Generate build attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            sdk/build/outputs/aar/sdk-release.aar
+            ~/.m2/repository/me/id/auth/idme-auth-sample/${{ env.RELEASE_VERSION }}/*
 
       - name: Display Maven artifacts
         continue-on-error: true
