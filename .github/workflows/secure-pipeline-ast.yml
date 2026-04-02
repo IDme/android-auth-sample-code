@@ -14,5 +14,5 @@ on:
 
 jobs:
   execute:
-    uses: IDme/workflow-library/.github/workflows/secure-pipeline-ast.yml@7a259bb101fd4f20d7cd0137c1f99e8d60af0859
+    uses: IDme/workflow-library/.github/workflows/secure-pipeline-ast.yml@master
     secrets: inherit
