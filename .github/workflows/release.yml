@@ -16,8 +16,7 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # TODO: Add `environment: release` after testing, then create the environment
-    # in repo Settings > Environments with "Protected branches only" deployment policy
+    environment: release
     permissions:
       contents: write
       packages: write
