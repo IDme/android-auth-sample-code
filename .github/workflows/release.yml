@@ -1,0 +1,214 @@
+name: Release Auth Sample
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'SDK Version (semver, e.g., 1.0.0 or 1.0.0-beta.1)'
+        required: true
+        type: string
+      draft:
+        description: 'Make draft release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Set release version
+        run: |
+          RELEASE_VERSION="${{ inputs.version }}"
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
+          echo "Release version: $RELEASE_VERSION"
+
+      - name: Validate version format
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "Invalid version format. Use semantic versioning (e.g., 1.0.0 or 1.0.0-beta.1)"
+            exit 1
+          fi
+          echo "Version format is valid: $RELEASE_VERSION"
+
+      - name: Check if tag already exists
+        run: |
+          if git rev-parse "v$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "Tag v$RELEASE_VERSION already exists!"
+            exit 1
+          fi
+          echo "Tag v$RELEASE_VERSION is available"
+
+      - name: Build release AAR
+        run: ./gradlew :sdk:assembleRelease -PreleaseVersion=$RELEASE_VERSION
+
+      - name: Build Maven artifacts locally
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocalRepository -PreleaseVersion=$RELEASE_VERSION
+
+      # --- Attestation: release assets ---
+      - name: Generate release asset attestation
+        uses: actions/attest-build-provenance@v3
+        id: release-attest
+        with:
+          subject-path: sdk/build/outputs/aar/sdk-release.aar
+
+      # --- Attestation: Maven artifacts ---
+      - name: Generate Maven artifact attestation
+        uses: actions/attest-build-provenance@v3
+        id: maven-attest
+        with:
+          subject-path: ~/.m2/repository/me/id/auth/idme-auth-sample/${{ env.RELEASE_VERSION }}/*
+
+      - name: Save attestation bundle alongside Maven artifacts
+        run: |
+          ATTESTATION_BUNDLE_PATH="${{ steps.maven-attest.outputs.bundle-path }}"
+          MAVEN_DIR=~/.m2/repository/me/id/auth/idme-auth-sample/$RELEASE_VERSION
+          if [[ -f "$ATTESTATION_BUNDLE_PATH" ]]; then
+            cp "$ATTESTATION_BUNDLE_PATH" "$MAVEN_DIR/idme-auth-sample-${RELEASE_VERSION}.intoto.jsonl"
+            echo "Saved attestation bundle as idme-auth-sample-${RELEASE_VERSION}.intoto.jsonl"
+          fi
+
+      # --- Publish Maven artifacts + attestation to GitHub Packages ---
+      - name: Publish Maven artifacts to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GROUP_ID="me.id.auth"
+          ARTIFACT_ID="idme-auth-sample"
+          VERSION="$RELEASE_VERSION"
+          GROUP_PATH=$(echo "$GROUP_ID" | tr '.' '/')
+          GITHUB_URL="https://maven.pkg.github.com/IDme/android-auth-sample-code"
+
+          echo "========================================"
+          echo "Deploying Maven Package"
+          echo "========================================"
+          echo "Coordinates: ${GROUP_ID}:${ARTIFACT_ID}:${VERSION}"
+          echo "URL: ${GITHUB_URL}"
+          echo "========================================"
+
+          MAVEN_DIR=~/.m2/repository/${GROUP_PATH}/${ARTIFACT_ID}/${VERSION}
+          cd "$MAVEN_DIR"
+
+          upload_file() {
+              local file="$1"
+              local remote_path="$2"
+              local url="${GITHUB_URL}/${GROUP_PATH}/${ARTIFACT_ID}/${VERSION}/${remote_path}"
+
+              echo "Uploading: $file -> $remote_path"
+              response=$(curl -s -w "\n%{http_code}" \
+                  -X PUT \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary "@${file}" \
+                  "$url")
+
+              http_code=$(echo "$response" | tail -n1)
+              if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+                  echo "  Success (HTTP $http_code)"
+                  return 0
+              else
+                  echo "  Failed (HTTP $http_code)"
+                  body=$(echo "$response" | sed '$d')
+                  echo "  Response: $body"
+                  return 1
+              fi
+          }
+
+          # Deploy POM
+          if ! upload_file "${ARTIFACT_ID}-${VERSION}.pom" "${ARTIFACT_ID}-${VERSION}.pom"; then
+              echo "Error: Failed to deploy POM"
+              exit 1
+          fi
+
+          # Deploy AAR
+          if ! upload_file "${ARTIFACT_ID}-${VERSION}.aar" "${ARTIFACT_ID}-${VERSION}.aar"; then
+              echo "Error: Failed to deploy AAR"
+              exit 1
+          fi
+
+          # Deploy module metadata if exists
+          if [[ -f "${ARTIFACT_ID}-${VERSION}.module" ]]; then
+              upload_file "${ARTIFACT_ID}-${VERSION}.module" "${ARTIFACT_ID}-${VERSION}.module" || \
+                  echo "Warning: Failed to deploy module metadata (non-critical)"
+          fi
+
+          # Deploy attestation bundle if exists
+          if [[ -f "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" ]]; then
+              upload_file "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" "${ARTIFACT_ID}-${VERSION}.intoto.jsonl" || \
+                  echo "Warning: Failed to deploy attestation bundle (non-critical)"
+          fi
+
+          echo "========================================"
+          echo "Maven package deployed successfully!"
+          echo "========================================"
+
+      - name: Display Maven artifacts
+        continue-on-error: true
+        run: |
+          echo "Maven artifacts in local repository:"
+          ls -la ~/.m2/repository/me/id/auth/idme-auth-sample/$RELEASE_VERSION/
+          echo ""
+          echo "Generated POM content:"
+          cat ~/.m2/repository/me/id/auth/idme-auth-sample/$RELEASE_VERSION/idme-auth-sample-$RELEASE_VERSION.pom
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$RELEASE_VERSION" -m "Auth Sample Code v$RELEASE_VERSION"
+          git push origin "v$RELEASE_VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Auth Sample Code v${{ env.RELEASE_VERSION }}
+          files: |
+            sdk/build/outputs/aar/sdk-release.aar
+            ${{ steps.release-attest.outputs.bundle-path }}
+          draft: ${{ inputs.draft }}
+          make_latest: ${{ !inputs.draft }}
+
+      - name: Release Summary
+        run: |
+          echo "**Auth Sample Code v$RELEASE_VERSION Released!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** $RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** v$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Draft:** ${{ inputs.draft }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Maven Coordinates" >> $GITHUB_STEP_SUMMARY
+          echo "\`me.id.auth:idme-auth-sample:$RELEASE_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "gh attestation verify idme-auth-sample-$RELEASE_VERSION.aar --repo IDme/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
