@@ -64,7 +64,7 @@ afterEvaluate {
         publications {
             register("release", MavenPublication::class) {
                 groupId = "me.id.auth"
-                artifactId = "idme-auth-sample"
+                artifactId = "android-auth-sample-code"
                 version = project.version.toString()
 
                 from(components["release"])
