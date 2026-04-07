@@ -3,6 +3,7 @@ import com.android.build.gradle.LibraryExtension
 apply(plugin = "com.android.library")
 apply(plugin = "kotlin-android")
 apply(plugin = "kotlinx-serialization")
+apply(plugin = "maven-publish")
 
 configure<LibraryExtension> {
     namespace = "com.idme.auth"
@@ -50,4 +51,27 @@ dependencies {
 
     "testImplementation"("junit:junit:4.13.2")
     "testImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+}
+
+afterEvaluate {
+    configure<PublishingExtension> {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = project.findProperty("GROUP") as String
+                artifactId = "idme-auth-sdk"
+                version = project.findProperty("VERSION_NAME") as String
+            }
+        }
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/IDme/android-auth-sample-code")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+    }
 }
