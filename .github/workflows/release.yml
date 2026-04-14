@@ -224,6 +224,10 @@ jobs:
           echo "- GitHub Packages: https://github.com/IDme/android-auth-sample-code/packages" >> $GITHUB_STEP_SUMMARY
           echo "- Maven Central: https://central.sonatype.com/artifact/com.idmelabs.auth/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published To" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Packages: https://github.com/IDme/android-auth-sample-code/packages" >> $GITHUB_STEP_SUMMARY
+          echo "- Maven Central: https://central.sonatype.com/artifact/me.id.auth/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Verification" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "gh attestation verify android-auth-sample-code-$RELEASE_VERSION.aar --repo IDme/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
