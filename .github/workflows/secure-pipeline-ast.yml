@@ -1,0 +1,18 @@
+name: Secure Pipeline | AST
+
+on:
+  push:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - converted_to_draft
+  schedule:
+    - cron: '0 8 * * *' # 3am EST (UTC-5)
+
+jobs:
+  execute:
+    uses: IDme/workflow-library/.github/workflows/secure-pipeline-ast.yml@7a259bb101fd4f20d7cd0137c1f99e8d60af0859
+    secrets: inherit
