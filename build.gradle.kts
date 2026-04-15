@@ -17,6 +17,8 @@ buildscript {
 
 apply(plugin = "io.github.gradle-nexus.publish-plugin")
 
+group = "com.idmelabs.auth"
+
 configure<NexusPublishExtension> {
     repositories {
         sonatype {
