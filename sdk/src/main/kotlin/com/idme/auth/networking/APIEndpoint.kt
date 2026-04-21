@@ -21,6 +21,10 @@ object APIEndpoint {
     fun userInfo(environment: IDmeEnvironment): String =
         "${environment.apiBaseURL}api/public/v3/userinfo"
 
+    /** Attributes endpoint (OAuth mode). */
+    fun attributes(environment: IDmeEnvironment): String =
+        "${environment.apiBaseURL}api/public/v3/attributes.json"
+
     /** Policies endpoint. */
     fun policies(environment: IDmeEnvironment): String =
         "${environment.apiBaseURL}api/public/v3/policies"
