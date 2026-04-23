@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import com.idme.auth.errors.IDmeAuthError
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CompletableDeferred
 
 /**
@@ -21,6 +22,8 @@ import kotlinx.coroutines.CompletableDeferred
 internal object IDmeAuthManager {
     private val pending = ConcurrentHashMap<String, CompletableDeferred<String>>()
 
+    internal var callingActivity: WeakReference<Activity>? = null
+
     /**
      * Launches the authentication flow in a Chrome Custom Tab and suspends
      * until the redirect is received.
@@ -33,6 +36,7 @@ internal object IDmeAuthManager {
     suspend fun launchAuth(activity: Activity, authUrl: String, sessionId: String): String {
         val deferred = CompletableDeferred<String>()
         pending[sessionId] = deferred
+        callingActivity = WeakReference(activity)
 
         val customTabsIntent = CustomTabsIntent.Builder()
             .setShowTitle(true)
@@ -45,6 +49,7 @@ internal object IDmeAuthManager {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw IDmeAuthError.UserCancelled
         } finally {
+            callingActivity = null
             pending.remove(sessionId)
         }
     }

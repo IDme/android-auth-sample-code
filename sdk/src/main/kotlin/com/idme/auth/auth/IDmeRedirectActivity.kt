@@ -1,6 +1,7 @@
 package com.idme.auth.auth
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 
 /**
@@ -47,6 +48,13 @@ class IDmeRedirectActivity : Activity() {
         } else {
             IDmeAuthManager.handleCancel()
         }
+        IDmeAuthManager.callingActivity?.get()?.let { activity ->
+            val intent = Intent(this, activity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+        }
+
         finish()
     }
 }
