@@ -43,12 +43,13 @@ class IDmeRedirectActivity : Activity() {
 
     private fun handleIntent() {
         val uri = intent?.data
+        val target = IDmeAuthManager.callingActivity?.get()
         if (uri != null) {
             IDmeAuthManager.handleRedirect(uri.toString())
         } else {
             IDmeAuthManager.handleCancel()
         }
-        IDmeAuthManager.callingActivity?.get()?.let { activity ->
+        target?.let { activity ->
             val intent = Intent(this, activity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
