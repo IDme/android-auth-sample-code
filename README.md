@@ -1,6 +1,6 @@
 # IDmeAuthSDK for Android
 
-A native Android SDK for integrating [ID.me](https://id.me) identity verification into your app. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
+Android SDK for integrating ID.me community verification into your app via Chrome Custom Tab. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Or if published to a Maven repository:
 
 ```kotlin
 dependencies {
-    implementation("com.idme:auth-sdk:1.0.0")
+    implementation("com.idmelabs.auth:android-auth-sample-code:1.0.8")
 }
 ```
 
@@ -45,7 +45,7 @@ val config = IDmeConfiguration(
     clientSecret = "YOUR_CLIENT_SECRET"
 )
 
-val idme = IDmeAuth(config)
+val idme = IDmeAuth(config, applicationContext)
 ```
 
 ### 2. Register Your Redirect Scheme
@@ -239,7 +239,7 @@ The `demo/` module contains a full Jetpack Compose demo app that showcases all S
 ## Project Structure
 
 ```
-digital-wallet-android-sdk/
+android-auth-sample-code/
 ├── build.gradle.kts              (Root Gradle config)
 ├── settings.gradle.kts           (Module definitions)
 ├── sdk/                          (SDK library module)
