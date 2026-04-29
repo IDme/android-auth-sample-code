@@ -187,7 +187,9 @@ idme.logout()
 | `TEACHER` | `teacher` |
 | `STUDENT` | `student` |
 | `GOVERNMENT_EMPLOYEE` | `government` |
-| `LOW_INCOME` | `low_income` |
+| `PUBLIC_BENEFIT_RECIPIENT` | `PBR` |
+| `AGE`    | `age`    |
+| `SENIOR` | `senior` |
 
 ## Error Handling
 
