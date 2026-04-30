@@ -267,7 +267,7 @@ class IDmeAuth(
      */
     suspend fun attributes(): AttributeResponse {
         val creds = tokenManager.validCredentials(60)
-        val url = APIEndpoint.userInfo(configuration.environment)
+        val url = APIEndpoint.attributes(configuration.environment)
 
         val headers = mapOf("Authorization" to "Bearer ${creds.accessToken}")
 

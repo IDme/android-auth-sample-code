@@ -82,12 +82,12 @@ jobs:
         uses: actions/attest-build-provenance@v3
         id: maven-attest
         with:
-          subject-path: ~/.m2/repository/me/id/auth/android-auth-sample-code/${{ env.RELEASE_VERSION }}/*
+          subject-path: ~/.m2/repository/com/idmelabs/auth/android-auth-sample-code/${{ env.RELEASE_VERSION }}/*
 
       - name: Save attestation bundle alongside Maven artifacts
         run: |
           ATTESTATION_BUNDLE_PATH="${{ steps.maven-attest.outputs.bundle-path }}"
-          MAVEN_DIR=~/.m2/repository/me/id/auth/android-auth-sample-code/$RELEASE_VERSION
+          MAVEN_DIR=~/.m2/repository/com/idmelabs/auth/android-auth-sample-code/$RELEASE_VERSION
           if [[ -f "$ATTESTATION_BUNDLE_PATH" ]]; then
             cp "$ATTESTATION_BUNDLE_PATH" "$MAVEN_DIR/android-auth-sample-code-${RELEASE_VERSION}.intoto.jsonl"
             echo "Saved attestation bundle as android-auth-sample-code-${RELEASE_VERSION}.intoto.jsonl"
@@ -98,7 +98,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          GROUP_ID="me.id.auth"
+          GROUP_ID="com.idmelabs.auth"
           ARTIFACT_ID="android-auth-sample-code"
           VERSION="$RELEASE_VERSION"
           GROUP_PATH=$(echo "$GROUP_ID" | tr '.' '/')
@@ -171,10 +171,10 @@ jobs:
         continue-on-error: true
         run: |
           echo "Maven artifacts in local repository:"
-          ls -la ~/.m2/repository/me/id/auth/android-auth-sample-code/$RELEASE_VERSION/
+          ls -la ~/.m2/repository/com/idmelabs/auth/android-auth-sample-code/$RELEASE_VERSION/
           echo ""
           echo "Generated POM content:"
-          cat ~/.m2/repository/me/id/auth/android-auth-sample-code/$RELEASE_VERSION/android-auth-sample-code-$RELEASE_VERSION.pom
+          cat ~/.m2/repository/com/idmelabs/auth/android-auth-sample-code/$RELEASE_VERSION/android-auth-sample-code-$RELEASE_VERSION.pom
 
       - name: Publish to Maven Central (Sonatype OSSRH)
         env:
@@ -218,11 +218,11 @@ jobs:
           echo "- **Draft:** ${{ inputs.draft }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Maven Coordinates" >> $GITHUB_STEP_SUMMARY
-          echo "\`me.id.auth:android-auth-sample-code:$RELEASE_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`com.idmelabs.auth:android-auth-sample-code:$RELEASE_VERSION\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Published To" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Packages: https://github.com/IDme/android-auth-sample-code/packages" >> $GITHUB_STEP_SUMMARY
-          echo "- Maven Central: https://central.sonatype.com/artifact/me.id.auth/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
+          echo "- Maven Central: https://central.sonatype.com/artifact/com.idmelabs.auth/android-auth-sample-code" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Verification" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY

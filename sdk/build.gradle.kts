@@ -77,7 +77,7 @@ afterEvaluate {
     configure<PublishingExtension> {
         publications {
             register("release", MavenPublication::class) {
-                groupId = "me.id.auth"
+                groupId = "com.idmelabs.auth"
                 artifactId = "android-auth-sample-code"
                 version = project.version.toString()
 
@@ -126,8 +126,8 @@ afterEvaluate {
         val signingKey = findProperty("signingKey")?.toString() ?: System.getenv("SIGNING_KEY")
         val signingPassword = findProperty("signingPassword")?.toString() ?: System.getenv("SIGNING_PASSWORD")
 
-        if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
-            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
+        if (!signingKey.isNullOrBlank()) {
+            useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword ?: "")
             sign(extensions.getByType<PublishingExtension>().publications["release"])
         }
     }

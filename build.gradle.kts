@@ -17,11 +17,13 @@ buildscript {
 
 apply(plugin = "io.github.gradle-nexus.publish-plugin")
 
+group = "com.idmelabs.auth"
+
 configure<NexusPublishExtension> {
     repositories {
         sonatype {
-            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
-            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
             username.set(findProperty("sonatypeUsername")?.toString() ?: System.getenv("SONATYPE_USERNAME"))
             password.set(findProperty("sonatypePassword")?.toString() ?: System.getenv("SONATYPE_PASSWORD"))
         }
