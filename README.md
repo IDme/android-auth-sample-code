@@ -1,6 +1,6 @@
 # IDmeAuthSDK for Android
 
-A native Android SDK for integrating [ID.me](https://id.me) identity verification into your app. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
+Android SDK for integrating ID.me community verification into your app via Chrome Custom Tab. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("me.id.auth:android-auth-sample-code:1.0.0-beta.1")
+    implementation("com.idmelabs.auth:android-auth-sample-code:1.0.8")
 }
 ```
 
@@ -74,7 +74,7 @@ val config = IDmeConfiguration(
     clientSecret = "YOUR_CLIENT_SECRET"
 )
 
-val idme = IDmeAuth(config)
+val idme = IDmeAuth(config, applicationContext)
 ```
 
 ### 2. Register Your Redirect Scheme
@@ -218,7 +218,9 @@ For mobile app integrations, use `OAUTH_PKCE`. This is the only mode that return
 | `TEACHER` | `teacher` |
 | `STUDENT` | `student` |
 | `GOVERNMENT_EMPLOYEE` | `government` |
-| `LOW_INCOME` | `low_income` |
+| `PUBLIC_BENEFIT_RECIPIENT` | `PBR` |
+| `AGE`    | `age`    |
+| `SENIOR` | `senior` |
 
 ## Error Handling
 
@@ -270,7 +272,7 @@ The `demo/` module contains a full Jetpack Compose demo app that showcases all S
 ## Project Structure
 
 ```
-digital-wallet-android-sdk/
+android-auth-sample-code/
 ├── build.gradle.kts              (Root Gradle config)
 ├── settings.gradle.kts           (Module definitions)
 ├── sdk/                          (SDK library module)
