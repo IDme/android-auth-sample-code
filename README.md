@@ -1,6 +1,6 @@
 # IDmeAuthSDK for Android
 
-A native Android SDK for integrating [ID.me](https://id.me) identity verification into your app. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
+Android SDK for integrating ID.me community verification into your app via Chrome Custom Tab. Supports OAuth 2.0 + PKCE and OpenID Connect (OIDC) flows with built-in token management, encrypted storage, and JWT validation.
 
 ## Requirements
 
@@ -10,23 +10,52 @@ A native Android SDK for integrating [ID.me](https://id.me) identity verificatio
 
 ## Installation
 
-### Gradle
+### Maven (GitHub Packages)
 
-Add the SDK module as a dependency in your app's `build.gradle.kts`:
+The SDK is published to GitHub Packages at:
+
+```
+https://maven.pkg.github.com/IDme/android-auth-sample-code
+```
+
+**Step 1:** Generate a GitHub personal access token with `read:packages` scope at https://github.com/settings/tokens.
+
+**Step 2:** Add your GitHub credentials to `local.properties` in your project root (do not commit this file):
+
+```
+gpr.user=YOUR_GITHUB_USERNAME
+gpr.key=YOUR_GITHUB_PAT
+```
+
+**Step 3:** Add the GitHub Packages repository to your project's `settings.gradle.kts`:
 
 ```kotlin
-dependencies {
-    implementation(project(":sdk"))
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/IDme/android-auth-sample-code")
+            credentials {
+                val localProps = java.util.Properties()
+                localProps.load(java.io.FileInputStream(rootProject.projectDir.resolve("local.properties")))
+                username = localProps["gpr.user"] as String?
+                password = localProps["gpr.key"] as String?
+            }
+        }
+    }
 }
 ```
 
-Or if published to a Maven repository:
+**Step 4:** Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.idme:auth-sdk:1.0.0")
+    implementation("com.idmelabs.auth:android-auth-sample-code:1.0.8")
 }
 ```
+
+> **Note:** The package URL `https://maven.pkg.github.com/IDme/android-auth-sample-code` returns a 404 when accessed in a browser without authentication. This is expected — GitHub uses 404 (rather than 401) to protect package visibility. The URL works correctly when Gradle makes authenticated requests using your token.
 
 ## Quick Start
 
@@ -45,7 +74,7 @@ val config = IDmeConfiguration(
     clientSecret = "YOUR_CLIENT_SECRET"
 )
 
-val idme = IDmeAuth(config)
+val idme = IDmeAuth(config, applicationContext)
 ```
 
 ### 2. Register Your Redirect Scheme
@@ -161,11 +190,13 @@ idme.logout()
 
 ### Auth Modes
 
+For mobile app integrations, use `OAUTH_PKCE`. This is the only mode that returns the full attributes payload including `status` and subgroup data (e.g. military verification status). Do not use `OIDC` mode — it routes through the OpenID Connect userinfo endpoint which returns only standard claims (`email`, `fname`, `lname`, `uuid`, etc.) and does not include `status` or subgroup data.
+
 | Mode | Description |
 |---|---|
-| `OAUTH_PKCE` | **Recommended.** OAuth 2.0 Authorization Code with PKCE. No client secret sent to authorize endpoint. |
-| `OAUTH` | Standard OAuth 2.0 Authorization Code. Requires `clientSecret`. |
-| `OIDC` | OpenID Connect. Returns an ID token with JWT signature validation against ID.me's JWKS. |
+| `OAUTH_PKCE` | **Required for mobile apps.** OAuth 2.0 Authorization Code with PKCE. No client secret needed. Returns full attributes and `status` payload. |
+| `OAUTH` | Standard OAuth 2.0 Authorization Code. Requires `clientSecret`. Server-side flows only. Not for mobile apps. |
+| `OIDC` | OpenID Connect. Does **not** return `status` or subgroup data. Not recommended for this integration. |
 
 ### Verification Types
 
@@ -187,7 +218,9 @@ idme.logout()
 | `TEACHER` | `teacher` |
 | `STUDENT` | `student` |
 | `GOVERNMENT_EMPLOYEE` | `government` |
-| `LOW_INCOME` | `low_income` |
+| `PUBLIC_BENEFIT_RECIPIENT` | `PBR` |
+| `AGE`    | `age`    |
+| `SENIOR` | `senior` |
 
 ## Error Handling
 
@@ -239,7 +272,7 @@ The `demo/` module contains a full Jetpack Compose demo app that showcases all S
 ## Project Structure
 
 ```
-digital-wallet-android-sdk/
+android-auth-sample-code/
 ├── build.gradle.kts              (Root Gradle config)
 ├── settings.gradle.kts           (Module definitions)
 ├── sdk/                          (SDK library module)
