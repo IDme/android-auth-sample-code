@@ -2,12 +2,7 @@ package com.idme.auth.models
 
 import kotlinx.serialization.Serializable
 
-/**
- * A verification policy available for the organization.
- *
- * Returned by the `/api/public/v3/policies` endpoint.
- * The policy `handle` is used as the OAuth `scope` parameter.
- */
+/** A verification policy. The `handle` is used as the OAuth `scope` parameter. */
 @Serializable
 data class Policy(
     /** Human-readable name (e.g. "Military Verification"). */

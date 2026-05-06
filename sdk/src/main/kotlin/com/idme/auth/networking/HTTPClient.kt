@@ -52,10 +52,9 @@ class DefaultHTTPClient : HTTPClient {
                     "${java.net.URLEncoder.encode(key, "UTF-8")}=${java.net.URLEncoder.encode(value, "UTF-8")}"
                 }
 
-                OutputStreamWriter(connection.outputStream).use { writer ->
-                    writer.write(bodyString)
-                    writer.flush()
-                }
+                val bodyBytes = bodyString.toByteArray(Charsets.UTF_8)
+                connection.setRequestProperty("Content-Length", bodyBytes.size.toString())
+                connection.outputStream.write(bodyBytes)
 
                 readResponse(connection)
             } catch (e: IDmeAuthError) {

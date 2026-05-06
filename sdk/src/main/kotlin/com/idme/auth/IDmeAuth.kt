@@ -18,7 +18,6 @@ import com.idme.auth.jwt.JWTDecoder
 import com.idme.auth.jwt.JWTValidator
 import com.idme.auth.models.AttributeResponse
 import com.idme.auth.models.Credentials
-import com.idme.auth.models.Policy
 import com.idme.auth.models.UserInfo
 import com.idme.auth.networking.APIEndpoint
 import com.idme.auth.networking.DefaultHTTPClient
@@ -110,6 +109,7 @@ class IDmeAuth(
         this.lastNonce = nonce
 
         Log.info("Starting auth session: ${configuration.verificationType.value} mode")
+        Log.debug("Authorize URL: $authURL")
 
         val callbackURL = IDmeAuthManager.launchAuth(activity, authURL, state)
 
@@ -142,42 +142,6 @@ class IDmeAuth(
      */
     suspend fun credentials(minTTL: Long = 60): Credentials {
         return tokenManager.validCredentials(minTTL)
-    }
-
-    // MARK: - Policies
-
-    /**
-     * Fetches the available verification policies for the organization.
-     *
-     * Uses the client credentials (client_id and client_secret) to authenticate via HTTP Basic Auth.
-     * The policy `handle` can be used as the OAuth `scope` parameter.
-     *
-     * @return A list of available policies.
-     */
-    suspend fun policies(): List<Policy> {
-        val url = APIEndpoint.policies(configuration.environment)
-        val credentials = "${configuration.clientId}:${configuration.clientSecret ?: ""}"
-        val encoded = java.util.Base64.getEncoder()
-            .encodeToString(credentials.toByteArray(Charsets.UTF_8))
-        val headers = mapOf("Authorization" to "Basic $encoded")
-
-        val response = try {
-            httpClient.get(url, headers)
-        } catch (e: IDmeAuthError) {
-            throw e
-        } catch (e: Exception) {
-            throw IDmeAuthError.NetworkError(e.localizedMessage ?: "Unknown error")
-        }
-
-        if (response.statusCode !in 200..299) {
-            throw IDmeAuthError.UnexpectedResponse(response.statusCode)
-        }
-
-        return try {
-            json.decodeFromString<List<Policy>>(response.body)
-        } catch (e: Exception) {
-            throw IDmeAuthError.DecodingFailed(e.localizedMessage ?: "Unknown error")
-        }
     }
 
     // MARK: - User Info

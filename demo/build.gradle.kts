@@ -1,7 +1,13 @@
 import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+import java.util.Properties
 
 apply(plugin = "com.android.application")
 apply(plugin = "kotlin-android")
+
+val localProps = Properties().also { props ->
+    val f = rootProject.file("local.properties")
+    if (f.exists()) props.load(f.inputStream())
+}
 
 configure<BaseAppModuleExtension> {
     namespace = "com.idme.auth.demo"
@@ -15,6 +21,11 @@ configure<BaseAppModuleExtension> {
         versionName = "1.0.0"
 
         manifestPlaceholders["idmeRedirectScheme"] = "idmedemo"
+
+        buildConfigField("String", "SANDBOX_CLIENT_ID",
+            "\"${localProps.getProperty("idme.sandbox.client_id", "")}\"")
+        buildConfigField("String", "SANDBOX_CLIENT_SECRET",
+            "\"${localProps.getProperty("idme.sandbox.client_secret", "")}\"")
     }
 
     buildTypes {
@@ -34,6 +45,7 @@ configure<BaseAppModuleExtension> {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
