@@ -14,7 +14,9 @@ enum class IDmeScope(val value: String) {
     TEACHER("teacher"),
     STUDENT("student"),
     GOVERNMENT_EMPLOYEE("government"),
-    LOW_INCOME("low_income");
+    PUBLIC_BENEFIT_RECIPIENT("pbr"),
+    AGE("age"),
+    SENIOR("senior");
 
     companion object {
         /** Space-separated scope string for the authorize endpoint. */
