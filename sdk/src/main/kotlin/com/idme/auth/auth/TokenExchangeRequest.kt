@@ -1,11 +1,13 @@
 package com.idme.auth.auth
 
 import com.idme.auth.configuration.IDmeConfiguration
+import com.idme.auth.configuration.IDmeScope
 import com.idme.auth.errors.IDmeAuthError
 import com.idme.auth.models.TokenResponse
 import com.idme.auth.networking.APIEndpoint
 import com.idme.auth.networking.DefaultHTTPClient
 import com.idme.auth.networking.HTTPClient
+import com.idme.auth.utilities.Log
 import kotlinx.serialization.json.Json
 
 /** Handles the OAuth token exchange (authorization code -> tokens). */
@@ -23,7 +25,8 @@ class TokenExchangeRequest(
             "grant_type" to "authorization_code",
             "code" to code,
             "redirect_uri" to configuration.redirectURI,
-            "client_id" to configuration.clientId
+            "client_id" to configuration.clientId,
+            "scope" to IDmeScope.authorizeString(configuration.scopes)
         )
 
         if (codeVerifier != null) {
@@ -33,6 +36,9 @@ class TokenExchangeRequest(
         if (configuration.clientSecret != null) {
             body["client_secret"] = configuration.clientSecret
         }
+
+        Log.debug("Token exchange URL: $tokenURL")
+        Log.debug("Token exchange body: $body")
 
         val response = try {
             httpClient.postForm(tokenURL, body)

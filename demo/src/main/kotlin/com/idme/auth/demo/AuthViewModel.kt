@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.idme.auth.demo.BuildConfig
 import com.idme.auth.IDmeAuth
 import com.idme.auth.configuration.IDmeAuthMode
 import com.idme.auth.configuration.IDmeConfiguration
@@ -18,6 +19,12 @@ import com.idme.auth.models.Credentials
 import com.idme.auth.models.Policy
 import kotlinx.coroutines.launch
 
+private val STANDARD_POLICIES = listOf(
+    Policy(name = "Login", handle = "login", active = true, groups = emptyList()),
+    Policy(name = "NIST AAL2 / IAL2", handle = "http://idmanagement.gov/ns/assurance/ial/2/aal/2", active = true, groups = emptyList()),
+    Policy(name = "Military", handle = "military", active = true, groups = emptyList())
+)
+
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     // MARK: - Configuration Inputs
@@ -26,15 +33,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     var authMode by mutableStateOf(IDmeAuthMode.OAUTH_PKCE)
-    var environment by mutableStateOf(IDmeEnvironment.PRODUCTION)
+    var environment by mutableStateOf(IDmeEnvironment.SANDBOX)
         private set
 
     var verificationType by mutableStateOf(IDmeVerificationType.SINGLE)
 
     // MARK: - State
 
-    var policies by mutableStateOf(listOf<Policy>())
-        private set
+    val policies: List<Policy> = STANDARD_POLICIES
 
     var credentials by mutableStateOf<Credentials?>(null)
         private set
@@ -43,9 +49,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     var isLoading by mutableStateOf(false)
-        private set
-
-    var isLoadingPolicies by mutableStateOf(false)
         private set
 
     var errorMessage by mutableStateOf<String?>(null)
@@ -60,13 +63,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val clientId: String
         get() = when (environment) {
             IDmeEnvironment.PRODUCTION -> "YOUR_PRODUCTION_CLIENT_ID"
-            IDmeEnvironment.SANDBOX -> "YOUR_SANDBOX_CLIENT_ID"
+            IDmeEnvironment.SANDBOX -> BuildConfig.SANDBOX_CLIENT_ID
         }
 
     private val clientSecret: String
         get() = when (environment) {
             IDmeEnvironment.PRODUCTION -> "YOUR_PRODUCTION_CLIENT_SECRET"
-            IDmeEnvironment.SANDBOX -> "YOUR_SANDBOX_CLIENT_SECRET"
+            IDmeEnvironment.SANDBOX -> BuildConfig.SANDBOX_CLIENT_SECRET
         }
 
     // MARK: - Private
@@ -84,32 +87,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateEnvironment(env: IDmeEnvironment) {
-        if (env != environment) {
-            environment = env
-            viewModelScope.launch { fetchPolicies() }
-        }
-    }
-
-    // MARK: - Policies
-
-    fun fetchPolicies() {
-        viewModelScope.launch {
-            isLoadingPolicies = true
-
-            try {
-                val auth = buildAuth(listOf(IDmeScope.MILITARY))
-                val fetched = auth.policies()
-                policies = fetched.filter { it.active }
-                // Clear selections that no longer exist
-                val validHandles = policies.map { it.handle }.toSet()
-                selectedPolicies = selectedPolicies.intersect(validHandles)
-            } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Failed to fetch policies", e)
-                policies = emptyList()
-            }
-
-            isLoadingPolicies = false
-        }
+        environment = env
     }
 
     // MARK: - Actions
@@ -197,9 +175,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             finalScopes.add(0, IDmeScope.OPENID)
         }
 
-        // Client secret is only applicable for server-side OAuth flows; never embed in PKCE or OIDC.
-        // TODO: Load credentials from local.properties via BuildConfig rather than hardcoding.
-        val secret = if (authMode == IDmeAuthMode.OAUTH) clientSecret else null
+        val secret = clientSecret.ifBlank { null }
 
         val config = IDmeConfiguration(
             clientId = clientId,

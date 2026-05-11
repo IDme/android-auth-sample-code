@@ -157,18 +157,7 @@ if (creds.expiresWithin(300)) {
 }
 ```
 
-### 6. Fetch Available Policies
-
-Discover which verification policies your organization supports:
-
-```kotlin
-val policies = idme.policies()
-for (policy in policies.filter { it.active }) {
-    println("${policy.name} -- scope: ${policy.handle}")
-}
-```
-
-### 7. Logout
+### 6. Logout
 
 ```kotlin
 idme.logout()
@@ -209,6 +198,7 @@ For mobile app integrations, use `OAUTH_PKCE`. This is the only mode that return
 
 | Scope | Raw Value |
 |---|---|
+| `LOGIN` | `login` |
 | `OPENID` | `openid` |
 | `PROFILE` | `profile` |
 | `EMAIL` | `email` |
@@ -218,9 +208,10 @@ For mobile app integrations, use `OAUTH_PKCE`. This is the only mode that return
 | `TEACHER` | `teacher` |
 | `STUDENT` | `student` |
 | `GOVERNMENT_EMPLOYEE` | `government` |
-| `PUBLIC_BENEFIT_RECIPIENT` | `PBR` |
+| `PUBLIC_BENEFIT_RECIPIENT` | `pbr` |
 | `AGE`    | `age`    |
 | `SENIOR` | `senior` |
+| `NIST_AAL2_IAL2` | `http://idmanagement.gov/ns/assurance/ial/2/aal/2` |
 
 ## Error Handling
 
@@ -255,7 +246,7 @@ The `demo/` module contains a full Jetpack Compose demo app that showcases all S
 
 - OAuth + PKCE and OIDC authentication flows
 - Single and multi-policy (groups) verification
-- Dynamic policy discovery from the `/api/public/v3/policies` endpoint
+- Standard policies: Login, NIST AAL2/IAL2, Military
 - Token display, refresh, and expiry monitoring
 - Raw JWT payload inspection
 - Environment switching (production/sandbox)
@@ -263,11 +254,16 @@ The `demo/` module contains a full Jetpack Compose demo app that showcases all S
 ### Running the Demo
 
 1. Open the project in Android Studio
-2. Select the `demo` run configuration
-3. Run on an API 26+ emulator or device
-4. Select verification policies and tap "Authenticate"
+2. Copy your sandbox credentials into `local.properties` (not committed):
+   ```
+   idme.sandbox.client_id=YOUR_SANDBOX_CLIENT_ID
+   idme.sandbox.client_secret=YOUR_SANDBOX_CLIENT_SECRET
+   ```
+3. Select the `demo` run configuration
+4. Run on an API 26+ emulator or device
+5. Select verification policies and tap "Authenticate"
 
-> The demo uses pre-configured ID.me test credentials. To use your own, update the `clientId`, `clientSecret`, and `redirectURI` in `AuthViewModel.kt`.
+> For production, update the `YOUR_PRODUCTION_CLIENT_ID` placeholder and `redirectURI` in `AuthViewModel.kt`.
 
 ## Project Structure
 

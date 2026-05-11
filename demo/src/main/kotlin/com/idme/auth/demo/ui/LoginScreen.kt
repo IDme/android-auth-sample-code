@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +26,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -39,12 +37,6 @@ import com.idme.auth.demo.AuthViewModel
 @Composable
 fun LoginScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
     val activity = LocalContext.current as? Activity
-
-    LaunchedEffect(Unit) {
-        if (viewModel.policies.isEmpty()) {
-            viewModel.fetchPolicies()
-        }
-    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -105,55 +97,16 @@ fun LoginScreen(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
-                if (viewModel.isLoadingPolicies) {
-                    item {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                            Text(
-                                "Loading policies...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                } else if (viewModel.policies.isEmpty()) {
-                    item {
-                        Text(
-                            "No policies available. Check your credentials.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    items(viewModel.policies, key = { it.handle }) { policy ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(policy.name)
-                                if (policy.groups.isNotEmpty()) {
-                                    Text(
-                                        policy.groups.joinToString(", ") { it.name },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Switch(
-                                checked = policy.handle in viewModel.selectedPolicies,
-                                onCheckedChange = { viewModel.togglePolicy(policy.handle) }
-                            )
-                        }
-                    }
-
-                    item {
-                        Text(
-                            "Policies are fetched from /api/public/v3/policies. The handle is used as the OAuth scope.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                items(viewModel.policies, key = { it.handle }) { policy ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(policy.name)
+                        Switch(
+                            checked = policy.handle in viewModel.selectedPolicies,
+                            onCheckedChange = { viewModel.togglePolicy(policy.handle) }
                         )
                     }
                 }

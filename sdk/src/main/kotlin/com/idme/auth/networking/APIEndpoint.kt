@@ -25,10 +25,6 @@ object APIEndpoint {
     fun attributes(environment: IDmeEnvironment): String =
         "${environment.apiBaseURL}api/public/v3/attributes.json"
 
-    /** Policies endpoint. */
-    fun policies(environment: IDmeEnvironment): String =
-        "${environment.apiBaseURL}api/public/v3/policies"
-
     /** OIDC discovery endpoint. */
     fun discovery(environment: IDmeEnvironment): String =
         environment.discoveryURL

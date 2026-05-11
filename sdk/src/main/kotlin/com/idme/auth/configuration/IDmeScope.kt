@@ -7,6 +7,10 @@ enum class IDmeScope(val value: String) {
     PROFILE("profile"),
     EMAIL("email"),
 
+    // Standard verification scopes
+    LOGIN("login"),
+    NIST_AAL2_IAL2("http://idmanagement.gov/ns/assurance/ial/2/aal/2"),
+
     // ID.me verification scopes
     MILITARY("military"),
     FIRST_RESPONDER("first_responder"),
